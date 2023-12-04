@@ -30,6 +30,18 @@ func main() {
 		os.Exit(1)
 	}
 
+	// below we send stage 5 response
+	if strings.Contains(requestStruct.Path, "/user-agent") {
+		stage5Resp := getStage5Response(requestStruct)
+		resp, err := CreateResponseFromResponseStruct(stage5Resp)
+		if err != nil {
+			fmt.Println("error in creating response from response struct", err.Error())
+			os.Exit(1)
+		}
+		connection.Write([]byte(resp))
+		return
+	}
+
 	// below we send response according to stage 4
 	if strings.Contains(requestStruct.Path, "/echo/") {
 		stage4Resp := getStage4Response(requestStruct)
@@ -84,6 +96,27 @@ func ParseRequestFromConnection(connection net.Conn) (*RequestStruct, error) {
 		Method:      statusLineComponents[0],
 		Path:        statusLineComponents[1],
 		HttpVersion: statusLineComponents[2],
+		Headers:     make(map[string]string),
+	}
+	// parsing the headers
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			return nil, fmt.Errorf("error in reading header line from reader")
+		}
+		line = strings.TrimSuffix(line, "\r\n")
+		// an empty line indicates the end of the headers
+		if line == "" {
+			fmt.Println("test")
+			break
+		}
+
+		// split the header into name and value
+		parts := strings.SplitN(line, ": ", 2)
+		if len(parts) < 2 {
+			return nil, fmt.Errorf("error in parsing header line: %s", line)
+		}
+		requestStruct.Headers[parts[0]] = parts[1]
 	}
 
 	return requestStruct, nil
@@ -113,7 +146,6 @@ func CreateResponseFromResponseStruct(respStruct *ResponseStruct) ([]byte, error
 
 func getStage4Response(reqStruct *RequestStruct) *ResponseStruct {
 	splitPath := strings.SplitN(reqStruct.Path, "/echo/", 2)
-	fmt.Println(splitPath)
 	respBodyString := splitPath[1]
 
 	return &ResponseStruct{
@@ -125,5 +157,19 @@ func getStage4Response(reqStruct *RequestStruct) *ResponseStruct {
 			"Content-Length": fmt.Sprintf("%d", len(respBodyString)),
 		},
 		Body: []byte(respBodyString),
+	}
+}
+
+func getStage5Response(reqStruct *RequestStruct) *ResponseStruct {
+	userAgentHeaderData := reqStruct.Headers["User-Agent"]
+	return &ResponseStruct{
+		HttpVersion:       "HTTP/1.1",
+		HttpStatusCode:    "200",
+		HttpStatusMessage: "OK",
+		Headers: map[string]string{
+			"Content-Type":   "text/plain",
+			"Content-Length": fmt.Sprintf("%d", len(userAgentHeaderData)),
+		},
+		Body: []byte(userAgentHeaderData),
 	}
 }
