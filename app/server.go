@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"net"
 	"os"
@@ -27,6 +28,18 @@ func main() {
 	if err != nil {
 		fmt.Println("error in parsing request from connection", err.Error())
 		os.Exit(1)
+	}
+
+	// below we send response according to stage 4
+	if strings.Contains(requestStruct.Path, "/echo/") {
+		stage4Resp := getStage4Response(requestStruct)
+		resp, err := CreateResponseFromResponseStruct(stage4Resp)
+		if err != nil {
+			fmt.Println("error in creating response from response struct", err.Error())
+			os.Exit(1)
+		}
+		connection.Write([]byte(resp))
+		return
 	}
 
 	// below check is only for stage 3
@@ -74,4 +87,43 @@ func ParseRequestFromConnection(connection net.Conn) (*RequestStruct, error) {
 	}
 
 	return requestStruct, nil
+}
+
+func CreateResponseFromResponseStruct(respStruct *ResponseStruct) ([]byte, error) {
+	writer := bytes.NewBuffer(make([]byte, 0))
+	writer.WriteString(respStruct.HttpVersion)
+	writer.WriteString(" ")
+	writer.WriteString(respStruct.HttpStatusCode)
+	writer.WriteString(" ")
+	writer.WriteString(respStruct.HttpStatusMessage)
+	writer.WriteString("\r\n")
+
+	for headerKey, headerValue := range respStruct.Headers {
+		writer.WriteString(fmt.Sprintf("%s: %s", headerKey, headerValue))
+		writer.WriteString("\r\n")
+	}
+
+	writer.WriteString("\r\n")
+	if len(respStruct.Body) > 0 {
+		writer.WriteString(string(respStruct.Body))
+	}
+
+	return writer.Bytes(), nil
+}
+
+func getStage4Response(reqStruct *RequestStruct) *ResponseStruct {
+	splitPath := strings.SplitN(reqStruct.Path, "/echo/", 2)
+	fmt.Println(splitPath)
+	respBodyString := splitPath[1]
+
+	return &ResponseStruct{
+		HttpVersion:       "HTTP/1.1",
+		HttpStatusCode:    "200",
+		HttpStatusMessage: "OK",
+		Headers: map[string]string{
+			"Content-Type":   "text/plain",
+			"Content-Length": fmt.Sprintf("%d", len(respBodyString)),
+		},
+		Body: []byte(respBodyString),
+	}
 }
