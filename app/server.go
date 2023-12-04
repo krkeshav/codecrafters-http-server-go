@@ -16,14 +16,37 @@ func main() {
 		os.Exit(1)
 	}
 
-	connection, err := l.Accept()
-	if err != nil {
-		fmt.Println("Error accepting connection: ", err.Error())
-		os.Exit(1)
-	}
-	// close the connection after everything is handled
-	defer connection.Close()
+	for {
+		connection, err := l.Accept()
+		if err != nil {
+			fmt.Println("Error accepting connection: ", err.Error())
+			os.Exit(1)
+		}
+		// // close the connection after everything is handled
+		// defer connection.Close()
 
+		go handleConnection(connection)
+	}
+
+}
+
+type RequestStruct struct {
+	Method      string
+	Path        string
+	HttpVersion string
+	Headers     map[string]string
+	Body        []byte
+}
+
+type ResponseStruct struct {
+	HttpVersion       string
+	HttpStatusCode    string
+	HttpStatusMessage string
+	Headers           map[string]string
+	Body              []byte
+}
+
+func handleConnection(connection net.Conn) {
 	requestStruct, err := ParseRequestFromConnection(connection)
 	if err != nil {
 		fmt.Println("error in parsing request from connection", err.Error())
@@ -63,22 +86,6 @@ func main() {
 	// dummy http response sent through connection
 	httpOkMessage := "HTTP/1.1 200 OK\r\n\r\n"
 	connection.Write([]byte(httpOkMessage))
-}
-
-type RequestStruct struct {
-	Method      string
-	Path        string
-	HttpVersion string
-	Headers     map[string]string
-	Body        []byte
-}
-
-type ResponseStruct struct {
-	HttpVersion       string
-	HttpStatusCode    string
-	HttpStatusMessage string
-	Headers           map[string]string
-	Body              []byte
 }
 
 func ParseRequestFromConnection(connection net.Conn) (*RequestStruct, error) {
