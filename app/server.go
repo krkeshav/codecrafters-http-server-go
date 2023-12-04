@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path"
 	"strings"
 )
 
@@ -49,6 +50,16 @@ func handleConnection(connection net.Conn) {
 	if err != nil {
 		fmt.Println("error in parsing request from connection", err.Error())
 		os.Exit(1)
+	}
+
+	if strings.Contains(requestStruct.Path, "/files") {
+		stage7Resp := getStage7Response(requestStruct)
+		resp, err := CreateResponseFromResponseStruct(stage7Resp)
+		if err != nil {
+			fmt.Println("error in creating response from response struct", err.Error())
+			os.Exit(1)
+		}
+		connection.Write([]byte(resp))
 	}
 
 	// below we send stage 5 response
@@ -175,5 +186,29 @@ func getStage5Response(reqStruct *RequestStruct) *ResponseStruct {
 			"Content-Length": fmt.Sprintf("%d", len(userAgentHeaderData)),
 		},
 		Body: []byte(userAgentHeaderData),
+	}
+}
+
+func getStage7Response(reqStruct *RequestStruct) *ResponseStruct {
+	directory := os.Args[2]
+	fileName := strings.Split(reqStruct.Path, "/")[2]
+	fullPath := path.Join(directory, fileName)
+	fileData, err := os.ReadFile(fullPath)
+	if err != nil {
+		return &ResponseStruct{
+			HttpVersion:       "HTTP/1.1",
+			HttpStatusCode:    "404",
+			HttpStatusMessage: "Not Found",
+		}
+	}
+	return &ResponseStruct{
+		HttpVersion:       "HTTP/1.1",
+		HttpStatusCode:    "200",
+		HttpStatusMessage: "OK",
+		Headers: map[string]string{
+			"Content-Type":   "application/octet-stream",
+			"Content-Length": fmt.Sprintf("%d", len(fileData)),
+		},
+		Body: []byte(fileData),
 	}
 }
