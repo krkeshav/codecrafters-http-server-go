@@ -4,9 +4,11 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 )
 
@@ -50,6 +52,16 @@ func handleConnection(connection net.Conn) {
 	if err != nil {
 		fmt.Println("error in parsing request from connection", err.Error())
 		os.Exit(1)
+	}
+
+	if strings.Contains(requestStruct.Path, "/files") && requestStruct.Method == "POST" {
+		stage8Resp := getStage8Response(requestStruct)
+		resp, err := CreateResponseFromResponseStruct(stage8Resp)
+		if err != nil {
+			fmt.Println("error in creating response from response struct", err.Error())
+			os.Exit(1)
+		}
+		connection.Write([]byte(resp))
 	}
 
 	if strings.Contains(requestStruct.Path, "/files") {
@@ -133,6 +145,11 @@ func ParseRequestFromConnection(connection net.Conn) (*RequestStruct, error) {
 		}
 		requestStruct.Headers[parts[0]] = parts[1]
 	}
+	contentLength := requestStruct.Headers["Content-Length"]
+	contentLengthInt, _ := strconv.Atoi(contentLength)
+	remainingData := make([]byte, contentLengthInt)
+	io.ReadFull(reader, remainingData)
+	requestStruct.Body = remainingData
 
 	return requestStruct, nil
 }
@@ -210,5 +227,33 @@ func getStage7Response(reqStruct *RequestStruct) *ResponseStruct {
 			"Content-Length": fmt.Sprintf("%d", len(fileData)),
 		},
 		Body: []byte(fileData),
+	}
+}
+
+func getStage8Response(reqStruct *RequestStruct) *ResponseStruct {
+	directory := os.Args[2]
+	fileName := strings.Split(reqStruct.Path, "/")[2]
+	fullPath := path.Join(directory, fileName)
+	file, err := os.Create(fullPath)
+	if err != nil {
+		return &ResponseStruct{
+			HttpVersion:       "HTTP/1.1",
+			HttpStatusCode:    "500",
+			HttpStatusMessage: "Internal Server Error",
+		}
+	}
+	_, err = file.Write(reqStruct.Body)
+	if err != nil {
+		return &ResponseStruct{
+			HttpVersion:       "HTTP/1.1",
+			HttpStatusCode:    "500",
+			HttpStatusMessage: "Internal Server Error",
+		}
+	}
+	file.Close()
+	return &ResponseStruct{
+		HttpVersion:       "HTTP/1.1",
+		HttpStatusCode:    "201",
+		HttpStatusMessage: "Created",
 	}
 }
