@@ -22,9 +22,6 @@ func main() {
 			fmt.Println("Error accepting connection: ", err.Error())
 			os.Exit(1)
 		}
-		// // close the connection after everything is handled
-		// defer connection.Close()
-
 		go handleConnection(connection)
 	}
 
@@ -47,6 +44,7 @@ type ResponseStruct struct {
 }
 
 func handleConnection(connection net.Conn) {
+	defer connection.Close()
 	requestStruct, err := ParseRequestFromConnection(connection)
 	if err != nil {
 		fmt.Println("error in parsing request from connection", err.Error())
@@ -114,7 +112,6 @@ func ParseRequestFromConnection(connection net.Conn) (*RequestStruct, error) {
 		line = strings.TrimSuffix(line, "\r\n")
 		// an empty line indicates the end of the headers
 		if line == "" {
-			fmt.Println("test")
 			break
 		}
 
