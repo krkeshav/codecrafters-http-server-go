@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"compress/gzip"
 	"fmt"
 	"io"
 	"net"
@@ -188,6 +189,14 @@ func getStage4AndExtensionResponse(reqStruct *RequestStruct) *ResponseStruct {
 			acceptEncoding = "gzip"
 			break
 		}
+	}
+	// compress response body if gzip is accepted
+	if acceptEncoding == "gzip" {
+		var buf bytes.Buffer
+		gz := gzip.NewWriter(&buf)
+		gz.Write([]byte(respBodyString))
+		gz.Close()
+		respBodyString = buf.String()
 	}
 
 	respStruct := &ResponseStruct{
