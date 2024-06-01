@@ -86,9 +86,9 @@ func handleConnection(connection net.Conn) {
 		return
 	}
 
-	// below we send response according to stage 4
+	// below we send response according to stage 4 and also extension response
 	if strings.Contains(requestStruct.Path, "/echo/") {
-		stage4Resp := getStage4Response(requestStruct)
+		stage4Resp := getStage4AndExtensionResponse(requestStruct)
 		resp, err := CreateResponseFromResponseStruct(stage4Resp)
 		if err != nil {
 			fmt.Println("error in creating response from response struct", err.Error())
@@ -176,11 +176,12 @@ func CreateResponseFromResponseStruct(respStruct *ResponseStruct) ([]byte, error
 	return writer.Bytes(), nil
 }
 
-func getStage4Response(reqStruct *RequestStruct) *ResponseStruct {
+func getStage4AndExtensionResponse(reqStruct *RequestStruct) *ResponseStruct {
 	splitPath := strings.SplitN(reqStruct.Path, "/echo/", 2)
 	respBodyString := splitPath[1]
+	acceptEncoding := reqStruct.Headers["Accept-Encoding"]
 
-	return &ResponseStruct{
+	respStruct := &ResponseStruct{
 		HttpVersion:       "HTTP/1.1",
 		HttpStatusCode:    "200",
 		HttpStatusMessage: "OK",
@@ -190,6 +191,10 @@ func getStage4Response(reqStruct *RequestStruct) *ResponseStruct {
 		},
 		Body: []byte(respBodyString),
 	}
+	if acceptEncoding == "gzip" {
+		respStruct.Headers["Content-Encoding"] = acceptEncoding
+	}
+	return respStruct
 }
 
 func getStage5Response(reqStruct *RequestStruct) *ResponseStruct {
