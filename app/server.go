@@ -183,6 +183,7 @@ func getStage4AndExtensionResponse(reqStruct *RequestStruct) *ResponseStruct {
 	acceptEncodingList := strings.Split(acceptEncodingHeaderString, ",")
 	acceptEncoding := ""
 	for _, encoding := range acceptEncodingList {
+		encoding = strings.TrimSpace(encoding)
 		if encoding == "gzip" {
 			acceptEncoding = "gzip"
 			break
@@ -199,7 +200,7 @@ func getStage4AndExtensionResponse(reqStruct *RequestStruct) *ResponseStruct {
 		},
 		Body: []byte(respBodyString),
 	}
-	if acceptEncoding == "gzip" {
+	if acceptEncoding != "" {
 		respStruct.Headers["Content-Encoding"] = acceptEncoding
 	}
 	return respStruct
