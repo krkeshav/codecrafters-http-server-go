@@ -179,7 +179,15 @@ func CreateResponseFromResponseStruct(respStruct *ResponseStruct) ([]byte, error
 func getStage4AndExtensionResponse(reqStruct *RequestStruct) *ResponseStruct {
 	splitPath := strings.SplitN(reqStruct.Path, "/echo/", 2)
 	respBodyString := splitPath[1]
-	acceptEncoding := reqStruct.Headers["Accept-Encoding"]
+	acceptEncodingHeaderString := reqStruct.Headers["Accept-Encoding"]
+	acceptEncodingList := strings.Split(acceptEncodingHeaderString, ",")
+	acceptEncoding := ""
+	for _, encoding := range acceptEncodingList {
+		if encoding == "gzip" {
+			acceptEncoding = "gzip"
+			break
+		}
+	}
 
 	respStruct := &ResponseStruct{
 		HttpVersion:       "HTTP/1.1",
